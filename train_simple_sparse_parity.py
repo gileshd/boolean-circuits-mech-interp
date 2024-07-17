@@ -1,8 +1,8 @@
 from jax import numpy as jnp
 from jax import random as jr
-from jax import grad, jit
-from jax.nn import log_softmax
+from jax import Array, grad, jit
 import optax
+from optax.losses import softmax_cross_entropy
 
 from model import MLP
 from parity_data import sample_binary_parity_data
@@ -29,9 +29,8 @@ x_test, y_test = x[train_N:], y[train_N:]
 
 def loss_fn(params, x, y):
     """Cross entropy loss."""
-    logits = model.apply(params, x)
-    log_probs = log_softmax(logits)
-    return -jnp.sum(y * log_probs) / y.shape[0]
+    logits: Array = model.apply(params, x) # type: ignore
+    return softmax_cross_entropy(logits, y).mean()
 
 
 optimizer = optax.adam(learning_rate=0.01)
