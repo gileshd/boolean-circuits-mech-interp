@@ -32,7 +32,7 @@ def indices_to_mask(indices: Array, data_dim) -> Bool[Array, "data_dim"]:
 
 
 def make_task_bit_mask_array(
-    key, n_tasks: int, n_bits_per_task: int, data_dim: int
+    key, n_tasks: int, n_bits_per_task: int, data_dim: int, reuse_bits=False
 ) -> Bool[Array, "n_tasks data_dim"]:
     """
     Creates an array of task bit masks.
@@ -46,18 +46,19 @@ def make_task_bit_mask_array(
     Returns:
         jnp.ndarray: An array where the first dimension corresponds to task indices and the second dimension to the data dimension, with True values indicating task bits.
     """
-    assert n_tasks * n_bits_per_task <= data_dim
-    task_bit_mask_array = jnp.zeros((n_tasks, data_dim), dtype=bool)
-    data_indices = list(range(data_dim))
-    for i in range(n_tasks):
-        key, subkey = jr.split(key)
-        task_bits = jr.choice(
-            subkey, jnp.array(data_indices), (n_bits_per_task,), replace=False
+    if reuse_bits:
+        subkeys = jr.split(key, n_tasks)
+        _choose_bit_idxs = lambda key: jr.choice(
+            key, jnp.arange(data_dim), (n_bits_per_task,), replace=False
         )
-        task_mask = jnp.zeros(data_dim, dtype=bool).at[task_bits].set(True)
-        task_bit_mask_array = task_bit_mask_array.at[i].set(task_mask)
-        for idx in task_bits:
-            data_indices.remove(idx)
+        task_bit_idxs = vmap(_choose_bit_idxs)(subkeys)
+    else:
+        assert n_tasks * n_bits_per_task <= data_dim
+        task_bit_idxs = jr.choice(
+            key, jnp.arange(data_dim), (n_tasks, n_bits_per_task), replace=False
+        )
+    _set_task_bits = lambda idxs: jnp.zeros(data_dim, dtype=bool).at[idxs].set(True)
+    task_bit_mask_array = vmap(_set_task_bits)(task_bit_idxs)
     return task_bit_mask_array
 
 
