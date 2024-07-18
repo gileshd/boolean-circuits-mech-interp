@@ -8,34 +8,50 @@ from model import MLP
 from parity_data import sample_multitask_parity_data
 from utils import create_minibatches
 
-## Model ##
-data_bits = 16
-n_tasks = 3
-data_dim = data_bits + n_tasks
-
-model = MLP(features=[32, 32, 2])
 key = jr.PRNGKey(0)
-params = model.init(key, jnp.ones(data_dim))
 
-## Data ##
-N = 5000
-key, subkey = jr.split(key)
+# Task specs from Michaud2023
+# - ntasks = 500
+# - n = 100 (task bits)
+# - k = 3 (parity bits per task)
+# - α = 1.4 (NB. in paper it is parameterized as k^-(1+α))
+# - batch size of 20000
+# - training dataset size 1e4-5e6
+# - single hidden-layer width 10-500 neurons
+# - train for 2e5 steps
+
+N = 500_000
+data_bits = 100
+n_tasks = 500
+data_dim = data_bits + n_tasks
 n_bits_per_task = 3
-x, y, _ = sample_multitask_parity_data(subkey, N, n_tasks, n_bits_per_task, data_bits)
+alpha = 1.4
+key, subkey = jr.split(key)
+x, y, _ = sample_multitask_parity_data(
+    subkey, N, n_tasks, n_bits_per_task, data_bits, alpha=alpha, reuse_bits=True,
+)
 
 train_N = int(0.8 * N)
 x_train, y_train = x[:train_N], y[:train_N]
 x_test, y_test = x[train_N:], y[train_N:]
 
+## Model ##
+key, subkey = jr.split(key)
+# model = MLP(features=[32, 32, 2])
+model = MLP(features=[300, 2])
+params = model.init(subkey, jnp.ones(data_dim))
+
+
 ## Training Setup ##
 def loss_fn(params, x, y):
     """Cross entropy loss."""
-    logits: Array = model.apply(params, x) # type: ignore
+    logits: Array = model.apply(params, x)  # type: ignore
     return softmax_cross_entropy(logits, y).mean()
 
 
 optimizer = optax.adam(learning_rate=0.01)
 opt_state = optimizer.init(params)
+
 
 @jit
 def update(params, x, y, opt_state):
@@ -56,7 +72,7 @@ train_loss = []
 test_loss = []
 
 # Training loop
-batch_size = 128
+batch_size = 20000
 num_epochs = 100
 key = jr.PRNGKey(0)
 for epoch in range(num_epochs):
