@@ -62,9 +62,13 @@ def make_task_bit_mask_array(
     return task_bit_mask_array
 
 
-def sample_task_bits(key, n_samples, n_tasks):
-    # TODO: allow for specifying prob of each task: jr.choice(..., p=...)
-    tasks = jr.choice(key, jnp.arange(n_tasks), (n_samples,))
+def sample_task_bits(key, n_samples, n_tasks, alpha=None):
+    if alpha is not None:
+        p = jnp.arange(1, n_tasks + 1) ** (-alpha)
+        p /= p.sum()
+        tasks = jr.choice(key, jnp.arange(n_tasks), (n_samples,), p=p)
+    else:
+        tasks = jr.choice(key, jnp.arange(n_tasks), (n_samples,))
     return one_hot(tasks, n_tasks)
 
 
