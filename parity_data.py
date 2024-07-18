@@ -72,8 +72,19 @@ def sample_task_bits(key, n_samples, n_tasks, alpha=None):
     return one_hot(tasks, n_tasks)
 
 
+# TODO: This construction makes it hard to sample more data from the same task structure
+# as both the task_bit_mask_array and the samples are generated from a single random key.
+# Options:
+#  - Have `sample_multitask_parity_data` take a task_bit_mask_array as an argument
+#  - Pass two differents keys to `sample_multitask_parity_data` one for the mask and one of the samples
 def sample_multitask_parity_data(
-    key, n_samples: int, n_tasks: int, n_bits_per_task: int, data_dim: int
+    key,
+    n_samples: int,
+    n_tasks: int,
+    n_bits_per_task: int,
+    data_dim: int,
+    alpha=None,
+    reuse_bits=False,
 ) -> tuple[
     Bool[Array, "n_samples n_tasks+data_dim"],
     Float[Array, "n_samples 2"],
@@ -93,11 +104,11 @@ def sample_multitask_parity_data(
         tuple[Bool[Array, "n_samples data_dim"], Float[Array, "n_samples n_tasks 2"]]: A tuple containing the input data and the output labels.
     """
     task_bit_mask_array = make_task_bit_mask_array(
-        key, n_tasks, n_bits_per_task, data_dim
+        key, n_tasks, n_bits_per_task, data_dim, reuse_bits=reuse_bits
     )
 
     key1, key2 = jr.split(key)
-    task_bits = sample_task_bits(key1, n_samples, n_tasks)
+    task_bits = sample_task_bits(key1, n_samples, n_tasks, alpha=alpha)
     data_bits = sample_binary_data(key2, n_samples, data_dim)
 
     _task_parity = lambda task_idx, data: parity(data, task_bit_mask_array[task_idx])
