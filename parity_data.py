@@ -27,8 +27,8 @@ def sample_binary_parity_data(
     return x, y
 
 
-def indices_to_mask(indices: Array, data_dim) -> Bool[Array, "data_dim"]:
-    return jnp.zeros(data_dim, dtype=bool).at[indices].set(True)
+def indices_to_mask(indices: Array, output_len) -> Bool[Array, "output_len"]:
+    return jnp.zeros(output_len, dtype=bool).at[indices].set(True)
 
 
 def make_task_bit_mask_array(
