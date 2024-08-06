@@ -33,7 +33,7 @@ def loss_fn(params, x, y):
     return softmax_cross_entropy(logits, y).mean()
 
 
-optimizer = optax.adam(learning_rate=0.01)
+optimizer = optax.adam(learning_rate=0.001)
 opt_state = optimizer.init(params)
 
 @jit
@@ -45,7 +45,6 @@ def update(params, x, y, opt_state):
 
 
 ## Training Loop ##
-
 
 def accuracy(params, x, y):
     """Calculate the accuracy of `model` and `params` on a given dataset."""
