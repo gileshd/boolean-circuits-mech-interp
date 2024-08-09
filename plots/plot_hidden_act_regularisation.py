@@ -13,7 +13,7 @@ import sys
 # # Add the project root path to the sys.path
 # sys.path.insert(1, os.path.join(sys.path[0], ".."))
 
-from boolean_circuits.model import MLP
+from boolean_circuits.models import MLP
 from boolean_circuits.parity_data import parity
 from boolean_circuits.utils import create_minibatches
 
