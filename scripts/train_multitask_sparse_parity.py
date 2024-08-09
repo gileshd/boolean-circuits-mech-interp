@@ -7,9 +7,9 @@ import numpy as np
 import optax
 from optax.losses import softmax_cross_entropy
 
-from model import MLP
-from parity_data import sample_multitask_parity_data
-from utils import create_minibatches
+from boolean_circuits.models import MLP
+from boolean_circuits.parity_data import sample_multitask_parity_data
+from boolean_circuits.utils import create_minibatches
 
 key = jr.PRNGKey(0)
 date = datetime.today().strftime("%Y-%m-%d_%H%M")
