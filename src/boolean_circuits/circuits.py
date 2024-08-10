@@ -9,7 +9,7 @@ BoolArray = NDArray[Bool]
 IntArray = NDArray[np.int_]
 
 # TOOD: Add docstrings
-# TODO: Jaxify
+# TODO: Jaxify - (equinox?)
 
 
 class Operation:
@@ -65,11 +65,14 @@ class Gate:
         self.operation = operation
         self.input_idxs = input_idxs
 
+    def __call__(self, input_values: BoolArray) -> Bool:
+        return self.operation(input_values[self.input_idxs])  # type: ignore
+
     def __str__(self) -> str:
         return f"{self.operation}({self.input_idxs})"
 
-    def __call__(self, input_values: BoolArray) -> Bool:
-        return self.operation(input_values[self.input_idxs])  # type: ignore
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class Layer:
@@ -81,6 +84,9 @@ class Layer:
 
     def __str__(self) -> str:
         return "; ".join([str(gate) for gate in self.gates])
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
     def __len__(self) -> int:
         return len(self.gates)
@@ -112,6 +118,9 @@ class Circuit:
     def __str__(self) -> str:
         output = "\n".join([str(layer) for layer in self.layers])
         return output + f"\n{self.output_gate}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
     def _check_wiring(self):
         """Ensure that no gate is referring to an input that doesn't exist."""
