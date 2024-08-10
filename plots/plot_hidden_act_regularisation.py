@@ -14,7 +14,7 @@ import sys
 # sys.path.insert(1, os.path.join(sys.path[0], ".."))
 
 from boolean_circuits.models import MLP
-from boolean_circuits.parity_data import parity
+from boolean_circuits.parity_data import one_hot_parity
 from boolean_circuits.utils import create_minibatches
 
 plt.style.use('thesis')
@@ -138,7 +138,7 @@ def plot_weighted_hidden_unit_activations(params, idx_mask, ax=None, color_ytick
         ytick_colors = [colors[par(r)] for r in bit_combs]
 
         for label, color in zip(ax.get_yticklabels(), ytick_colors):
-            label.set_color(color)
+            label.set_color(color) # type: ignore
 
     return im
 

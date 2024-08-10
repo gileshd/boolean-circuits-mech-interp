@@ -6,10 +6,14 @@ from jax.nn import one_hot
 from jaxtyping import Array, Float, Bool
 
 
-def parity(
+def parity(x: Bool[Array, "data_dim"], idx_mask: Bool[Array, "data_dim"]) -> Bool:
+    return jnp.sum(x, where=idx_mask) % 2
+
+
+def one_hot_parity(
     x: Float[Array, "data_dim"], idx_mask: Bool[Array, "data_dim"]
 ) -> Float[Array, "2"]:
-    p = jnp.sum(x, where=idx_mask) % 2
+    p = parity(x, idx_mask)
     return one_hot(p, 2)
 
 
@@ -23,7 +27,7 @@ def sample_binary_parity_data(
 ) -> tuple[Bool[Array, "n_samples data_dim"], Float[Array, "n_samples 2"]]:
     """docstring"""
     x = sample_binary_data(key, n_samples, dim)
-    y = vmap(parity, in_axes=(0, None))(x, idx_mask)
+    y = vmap(one_hot_parity, in_axes=(0, None))(x, idx_mask)
     return x, y
 
 
@@ -111,7 +115,9 @@ def sample_multitask_parity_data(
     task_bits = sample_task_bits(key1, n_samples, n_tasks, alpha=alpha)
     data_bits = sample_binary_data(key2, n_samples, data_dim)
 
-    _task_parity = lambda task_idx, data: parity(data, task_bit_mask_array[task_idx])
+    _task_parity = lambda task_idx, data: one_hot_parity(
+        data, task_bit_mask_array[task_idx]
+    )
     y = vmap(_task_parity, in_axes=(0, 0))(task_bits.argmax(1), data_bits)
 
     x = jnp.concatenate((task_bits, data_bits), axis=1)
