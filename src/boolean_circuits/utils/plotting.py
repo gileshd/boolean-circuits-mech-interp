@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
 
 
 def plot_offset_vlines(x, ys, offset_range=0.2, ax=None):
@@ -56,3 +57,36 @@ def plot_SP_weights(params, data_bit_idxs, axs=None):
 
     axs[0].set_ylabel("Weights from input to hidden layer")
     return axs
+
+
+def plot_activation_for_combinations(x, bit_combs, ax=None, color_yticks=True):
+    """
+    Heatmap of activations in response to inputs `bit_combs` in input.
+
+    Args:
+        x: Array of activations.
+        bit_combs: Array of bit combinations.
+        ax (optional): Matplotlib axis object.
+        color_yticks (optional): Boolean to color y-ticks according to parity of 
+                                 corresponding bit combination.
+    """
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    vmin, vmax = x.min(), x.max()
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+    im = ax.imshow(x, cmap='RdBu', norm=norm)
+    ax.set_yticks(range(8), labels= [str(r) for r in bit_combs]);
+    ax.set_xticks([])
+
+    if color_yticks:
+        cmap = plt.get_cmap('RdBu')
+        colors = [cmap.get_over(), cmap.get_under()]
+        par = lambda x: int(sum(x) % 2 == 0)
+        ytick_colors = [colors[par(r)] for r in bit_combs]
+
+        for label, color in zip(ax.get_yticklabels(), ytick_colors):
+            label.set_color(color) # type: ignore
+
+    return im

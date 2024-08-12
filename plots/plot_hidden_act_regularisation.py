@@ -5,7 +5,6 @@ from jax import Array, grad, jit, vmap
 from jax.nn import relu
 from jax.tree_util import tree_leaves
 from matplotlib import pyplot as plt
-from matplotlib.colors import TwoSlopeNorm
 import optax
 from optax import softmax_cross_entropy
 import os
@@ -13,6 +12,7 @@ import os
 from boolean_circuits.models import MLP
 from boolean_circuits.parity_data import one_hot_parity 
 from boolean_circuits.utils.data import create_minibatches
+from boolean_circuits.utils.plotting import plot_activation_for_combinations
 
 plt.style.use('thesis')
 
@@ -101,33 +101,6 @@ def calculate_weighted_h_activations(params, idx_mask, data_bit_combs):
     return weighted_h
 
 
-def plot_activation_for_combinations(x, bit_combs, ax=None, color_yticks=True):
-    """Activation heatmap for inputs with `data_bit_combs`.
-
-    Args:
-        x: Array of activations.
-        bit_combs: Array of bit combinations.
-    """
-
-    if ax is None:
-        _, ax = plt.subplots()
-
-    vmin, vmax = x.min(), x.max()
-    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
-    im = ax.imshow(x, cmap='RdBu', norm=norm)
-    ax.set_yticks(range(8), labels= [str(r) for r in bit_combs]);
-    ax.set_xticks([])
-
-    if color_yticks:
-        cmap = plt.get_cmap('RdBu')
-        colors = [cmap.get_over(), cmap.get_under()]
-        par = lambda x: int(sum(x) % 2 == 0)
-        ytick_colors = [colors[par(r)] for r in bit_combs]
-
-        for label, color in zip(ax.get_yticklabels(), ytick_colors):
-            label.set_color(color) # type: ignore
-
-    return im
 
 if __name__ == "__main__":
     data_key = jr.PRNGKey(0)
