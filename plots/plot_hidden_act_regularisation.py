@@ -20,6 +20,7 @@ plt.style.use('thesis')
 PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_FILE = f"{PARENT_DIR}/figures/sparse_parity_hidden_act_regularisation.png"
 
+
 def complete_parity_data(key, data_dim, k=3):
     """Calculate labelled parity data for all possible bit strings length `data_dim`."""
 
@@ -65,11 +66,21 @@ def train_model_with_loss(key, loss_fn, data):
     return params
 
 
-def plot_weighted_hidden_unit_activations(params, idx_mask, ax=None, color_yticks=True):
-    if ax is None:
-        _, ax = plt.subplots()
+def calculate_weighted_h_activations(params, idx_mask, data_bit_combs):
+    """
+    Calculate weighted hidden unit activations for all bit combinations.
 
-    @jit
+    Hidden unit activations are weighted by their influence on the parity output.
+
+    Args:
+        params: model parameters.
+        idx_mask: mask for the data bits within the model input.
+        data_bit_combs: combination of data bits to calculate hidden activations for.
+
+    Returns:
+        weighted_h: weighted hidden unit activations
+    """
+
     def hidden_activations(params, x):
         W_in = params["params"]["Dense_0"]["kernel"]
         bias = params["params"]["Dense_0"]["bias"]
@@ -82,16 +93,28 @@ def plot_weighted_hidden_unit_activations(params, idx_mask, ax=None, color_ytick
             background = jr.bernoulli(key, 0.5, shape=idx_mask.shape)
         return background.at[idx_mask].set(bits)
 
-    bit_combs = jnp.array(list(itertools.product([0, 1], repeat=len(idxs))))
-    sample_data_bits = vmap(sample_bit_pattern, (0, None))(bit_combs, idx_mask.astype(bool))
+    sample_data_bits = vmap(sample_bit_pattern, (0, None))(data_bit_combs, idx_mask.astype(bool))
 
     h = vmap(hidden_activations, (None, 0))(params, sample_data_bits)
     W_out = params['params']["Dense_1"]["kernel"]
     weighted_h = h * W_out[:,1]
+    return weighted_h
 
-    vmin, vmax = weighted_h.min(), weighted_h.max()
+
+def plot_activation_for_combinations(x, bit_combs, ax=None, color_yticks=True):
+    """Activation heatmap for inputs with `data_bit_combs`.
+
+    Args:
+        x: Array of activations.
+        bit_combs: Array of bit combinations.
+    """
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    vmin, vmax = x.min(), x.max()
     norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
-    im = ax.imshow(weighted_h, cmap='RdBu', norm=norm)
+    im = ax.imshow(x, cmap='RdBu', norm=norm)
     ax.set_yticks(range(8), labels= [str(r) for r in bit_combs]);
     ax.set_xticks([])
 
@@ -154,14 +177,19 @@ if __name__ == "__main__":
 
     idx_mask = jnp.zeros(data_dim).at[idxs].set(True)
 
+    bit_combs = jnp.array(list(itertools.product([0, 1], repeat=len(idxs))))
+    h_unreg = calculate_weighted_h_activations(unreg_params, idx_mask, bit_combs)
+    h_l2 = calculate_weighted_h_activations(l2_params, idx_mask, bit_combs)
+    h_l1 = calculate_weighted_h_activations(l1_params, idx_mask, bit_combs)
+
     # squeeze=False needed to stop type checker complaining
     fig, axs = plt.subplots(3,1, figsize=(9, 6), squeeze=False) 
     axs = axs.squeeze()
-    im1 = plot_weighted_hidden_unit_activations(unreg_params, idx_mask, ax=axs[0])
+    im1 = plot_activation_for_combinations(h_unreg, bit_combs, ax=axs[0])
     axs[0].set_title("Unregularized")
-    im2 = plot_weighted_hidden_unit_activations(l2_params, idx_mask, ax=axs[1])
+    im2 = plot_activation_for_combinations(h_l2, bit_combs, ax=axs[1])
     axs[1].set_title("L2 Regularized")
-    im3 = plot_weighted_hidden_unit_activations(l1_params, idx_mask, ax=axs[2])
+    im3 = plot_activation_for_combinations(h_l1, bit_combs, ax=axs[2])
     axs[2].set_title("L1 Regularized")
 
     plt.tight_layout(rect=(0, 0, 0.95, 1))
