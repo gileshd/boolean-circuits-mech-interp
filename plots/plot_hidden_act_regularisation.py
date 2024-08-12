@@ -5,23 +5,20 @@ from jax import Array, grad, jit, vmap
 from jax.nn import relu
 from jax.tree_util import tree_leaves
 from matplotlib import pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
 import optax
 from optax import softmax_cross_entropy
 import os
-import sys
-
-# # Add the project root path to the sys.path
-# sys.path.insert(1, os.path.join(sys.path[0], ".."))
 
 from boolean_circuits.models import MLP
-from boolean_circuits.parity_data import one_hot_parity
-from boolean_circuits.utils import create_minibatches
+from boolean_circuits.parity_data import one_hot_parity 
+from boolean_circuits.utils.data import create_minibatches
 
 plt.style.use('thesis')
 
 # Current file directory
 PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUT_FILE = f"{PARENT_DIR}"/figures/sparse_parity_hidden_act_regularisation.png"
+OUT_FILE = f"{PARENT_DIR}/figures/sparse_parity_hidden_act_regularisation.png"
 
 def complete_parity_data(key, data_dim, k=3):
     """Calculate labelled parity data for all possible bit strings length `data_dim`."""
@@ -34,51 +31,16 @@ def complete_parity_data(key, data_dim, k=3):
     idxs = jr.choice(subkey2, jnp.arange(data_dim), shape=(k,), replace=False)
     idx_mask = jnp.zeros(data_dim).at[idxs].set(True)
 
-    y = vmap(parity, in_axes=(0, None))(x, idx_mask)
+    y = vmap(one_hot_parity, in_axes=(0, None))(x, idx_mask)
 
     return x, y, idxs
 
-key = jr.PRNGKey(0)
-model = MLP(features=[32, 2])
-data_dim = 8
-x, y, idxs = complete_parity_data(key, data_dim)
 
-train_N = int(0.8 * len(x))
-x_train, y_train = x[:train_N], y[:train_N]
-x_test, y_test = x[train_N:], y[train_N:]
-
-def l1_loss_fn(params, x, y, weight_decay=1e-3):
-    """Cross entropy loss with L1 weight decay."""
-    logits: Array = model.apply(params, x)  # type: ignore
-    ce_loss = softmax_cross_entropy(logits, y).mean()
-    
-    # L1 weight decay
-    l1_loss = sum(jnp.sum(jnp.abs(p)) for p in tree_leaves(params))
-    
-    total_loss = ce_loss + 0.5 * weight_decay * l1_loss
-    return total_loss
-
-def l2_loss_fn(params, x, y, weight_decay=1e-3):
-    """Cross entropy loss with L2 weight decay."""
-    logits: Array = model.apply(params, x) # type: ignore
-    ce_loss = softmax_cross_entropy(logits, y).mean()
-    
-    # L2 weight decay
-    l2_loss = sum(jnp.sum(jnp.square(p)) for p in tree_leaves(params))
-    
-    total_loss = ce_loss + 0.5 * weight_decay * l2_loss
-    return total_loss
-
-def unreg_loss_fn(params, x, y, weight_decay=1e-3):
-    """Cross entropy loss."""
-    logits: Array = model.apply(params, x) # type: ignore
-    ce_loss = softmax_cross_entropy(logits, y).mean()
-    
-    total_loss = ce_loss + 0.5 * weight_decay 
-    return total_loss
-
-def train_model_with_loss(key, loss_fn):
+def train_model_with_loss(key, loss_fn, data):
     """Train model with specified loss function."""
+    x_train, y_train = data
+    data_dim = x_train.shape[1]
+
     key, subkey = jr.split(key)
     params = model.init(subkey, jnp.ones(data_dim))
     batch_size = 64
@@ -97,7 +59,7 @@ def train_model_with_loss(key, loss_fn):
 
     for _ in range(num_epochs):
         key, subkey = jr.split(key)
-        for x_batch, y_batch in create_minibatches(x_train, y_train, batch_size, subkey):
+        for x_batch, y_batch in create_minibatches((x_train, y_train), batch_size, subkey):
             params, opt_state = update(params, x_batch, y_batch, opt_state)
 
     return params
@@ -127,7 +89,9 @@ def plot_weighted_hidden_unit_activations(params, idx_mask, ax=None, color_ytick
     W_out = params['params']["Dense_1"]["kernel"]
     weighted_h = h * W_out[:,1]
 
-    im = ax.imshow(weighted_h, cmap='RdBu')
+    vmin, vmax = weighted_h.min(), weighted_h.max()
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+    im = ax.imshow(weighted_h, cmap='RdBu', norm=norm)
     ax.set_yticks(range(8), labels= [str(r) for r in bit_combs]);
     ax.set_xticks([])
 
@@ -142,30 +106,72 @@ def plot_weighted_hidden_unit_activations(params, idx_mask, ax=None, color_ytick
 
     return im
 
-l1_params = train_model_with_loss(jr.PRNGKey(101), l1_loss_fn)
-l2_params = train_model_with_loss(jr.PRNGKey(101), l2_loss_fn)
-unreg_params = train_model_with_loss(jr.PRNGKey(101), unreg_loss_fn)
+if __name__ == "__main__":
+    data_key = jr.PRNGKey(0)
+    model = MLP(features=[32, 2])
+    data_dim = 8
+    x, y, idxs = complete_parity_data(data_key, data_dim)
 
-idx_mask = jnp.zeros(data_dim).at[idxs].set(True)
+    train_N = int(0.8 * len(x))
+    x_train, y_train = x[:train_N], y[:train_N]
+    x_test, y_test = x[train_N:], y[train_N:]
+    train_data = (x_train, y_train)
 
-# squeeze=False needed to stop type checker complaining
-fig, axs = plt.subplots(3,1, figsize=(9, 6), squeeze=False) 
-axs = axs.squeeze()
-im1 = plot_weighted_hidden_unit_activations(unreg_params, idx_mask, ax=axs[0])
-axs[0].set_title("Unregularized")
-im2 = plot_weighted_hidden_unit_activations(l2_params, idx_mask, ax=axs[1])
-axs[1].set_title("L2 Regularized")
-im3 = plot_weighted_hidden_unit_activations(l1_params, idx_mask, ax=axs[2])
-axs[2].set_title("L1 Regularized")
+    def l1_loss_fn(params, x, y, weight_decay=1e-3):
+        """Cross entropy loss with L1 weight decay."""
+        logits: Array = model.apply(params, x)  # type: ignore
+        ce_loss = softmax_cross_entropy(logits, y).mean()
+        
+        # L1 weight decay
+        l1_loss = sum(jnp.sum(jnp.abs(p)) for p in tree_leaves(params))
+        
+        total_loss = ce_loss + 0.5 * weight_decay * l1_loss
+        return total_loss
 
-plt.tight_layout(rect=(0, 0, 0.95, 1))
+    def l2_loss_fn(params, x, y, weight_decay=1e-3):
+        """Cross entropy loss with L2 weight decay."""
+        logits: Array = model.apply(params, x) # type: ignore
+        ce_loss = softmax_cross_entropy(logits, y).mean()
+        
+        # L2 weight decay
+        l2_loss = sum(jnp.sum(jnp.square(p)) for p in tree_leaves(params))
+        
+        total_loss = ce_loss + 0.5 * weight_decay * l2_loss
+        return total_loss
 
-# Add colorbar
-cbar_ax = fig.add_axes((0.88, 0.04, 0.02, 0.88))  # [left, bottom, width, height]
-cbar = fig.colorbar(im3, cax=cbar_ax, ticks=[]) 
-cbar.ax.text(0.5, 1.02, 'Parity 1', ha='center', va='bottom', transform=cbar.ax.transAxes)
-cbar.ax.text(0.5, -0.02, 'Parity 0', ha='center', va='top', transform=cbar.ax.transAxes)
-# cbar.set_label('Hidden Unit to Parity Influence')
+    def unreg_loss_fn(params, x, y, weight_decay=1e-3):
+        """Cross entropy loss."""
+        logits: Array = model.apply(params, x) # type: ignore
+        ce_loss = softmax_cross_entropy(logits, y).mean()
+        
+        total_loss = ce_loss + 0.5 * weight_decay 
+        return total_loss
 
-plt.savefig(OUT_FILE,bbox_inches="tight")
+
+    l1_params = train_model_with_loss(jr.PRNGKey(101), l1_loss_fn, train_data)
+    l2_params = train_model_with_loss(jr.PRNGKey(101), l2_loss_fn, train_data)
+    unreg_params = train_model_with_loss(jr.PRNGKey(101), unreg_loss_fn, train_data)
+
+    idx_mask = jnp.zeros(data_dim).at[idxs].set(True)
+
+    # squeeze=False needed to stop type checker complaining
+    fig, axs = plt.subplots(3,1, figsize=(9, 6), squeeze=False) 
+    axs = axs.squeeze()
+    im1 = plot_weighted_hidden_unit_activations(unreg_params, idx_mask, ax=axs[0])
+    axs[0].set_title("Unregularized")
+    im2 = plot_weighted_hidden_unit_activations(l2_params, idx_mask, ax=axs[1])
+    axs[1].set_title("L2 Regularized")
+    im3 = plot_weighted_hidden_unit_activations(l1_params, idx_mask, ax=axs[2])
+    axs[2].set_title("L1 Regularized")
+
+    plt.tight_layout(rect=(0, 0, 0.95, 1))
+
+    # Add colorbar
+    cbar_ax = fig.add_axes((0.88, 0.04, 0.02, 0.88))  # [left, bottom, width, height]
+    cbar = fig.colorbar(im3, cax=cbar_ax, ticks=[]) 
+    cbar.ax.text(0.5, 1.02, 'Parity 1', ha='center', va='bottom', transform=cbar.ax.transAxes)
+    cbar.ax.text(0.5, -0.02, 'Parity 0', ha='center', va='top', transform=cbar.ax.transAxes)
+    # cbar.set_label('Hidden Unit to Parity Influence')
+
+    plt.savefig(OUT_FILE,bbox_inches="tight", dpi=300)
 
