@@ -6,7 +6,7 @@ from optax.losses import softmax_cross_entropy
 
 from boolean_circuits.models import MLP
 from boolean_circuits.parity_data import sample_binary_parity_data
-from boolean_circuits.utils import create_minibatches
+from boolean_circuits.utils.data import create_minibatches
 
 ## Model ##
 data_dim = 16
@@ -62,7 +62,7 @@ key = jr.PRNGKey(0)
 for epoch in range(num_epochs):
     key, subkey = jr.split(key)
 
-    for x_batch, y_batch in create_minibatches(x_train, y_train, batch_size, subkey):
+    for x_batch, y_batch in create_minibatches((x_train, y_train), batch_size, subkey):
         params, opt_state = update(params, x_batch, y_batch, opt_state)
 
     if epoch % 10 == 0:

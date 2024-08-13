@@ -6,7 +6,7 @@ from jax.nn import relu
 from jax.tree_util import tree_leaves
 from matplotlib import pyplot as plt
 import optax
-from optax import softmax_cross_entropy
+from optax.losses import softmax_cross_entropy
 import os
 
 from boolean_circuits.models import MLP
