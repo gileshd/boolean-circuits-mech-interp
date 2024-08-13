@@ -9,8 +9,8 @@ import optax
 from optax.losses import softmax_cross_entropy
 import os
 
-from boolean_circuits.models import MLP
-from boolean_circuits.parity_data import one_hot_parity 
+from boolean_circuits.jax.models import MLP
+from boolean_circuits.data.parity_data import one_hot_parity 
 from boolean_circuits.utils.data import create_minibatches
 from boolean_circuits.utils.plotting import plot_activation_for_combinations
 

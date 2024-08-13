@@ -1,11 +1,12 @@
+"""Train a simple MLP on the sparse parity dataset."""
 from jax import numpy as jnp
 from jax import random as jr
 from jax import Array, grad, jit
 import optax
 from optax.losses import softmax_cross_entropy
 
-from boolean_circuits.models import MLP
-from boolean_circuits.parity_data import sample_binary_parity_data
+from boolean_circuits.jax.models import MLP
+from boolean_circuits.data.parity_data import sample_binary_parity_data
 from boolean_circuits.utils.data import create_minibatches
 
 ## Model ##

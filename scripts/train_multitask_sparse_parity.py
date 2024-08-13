@@ -1,3 +1,4 @@
+"""Train a simple MLP on the multi-task sparse parity problem."""
 from datetime import datetime
 from flax.training import checkpoints
 from jax import numpy as jnp
@@ -7,9 +8,9 @@ import numpy as np
 import optax
 from optax.losses import softmax_cross_entropy
 
-from boolean_circuits.models import MLP
-from boolean_circuits.parity_data import sample_multitask_parity_data
-from boolean_circuits.utils import create_minibatches
+from boolean_circuits.jax.models import MLP
+from boolean_circuits.jax.data.parity_data import sample_multitask_parity_data
+from boolean_circuits.jax.utils import create_minibatches
 
 key = jr.PRNGKey(0)
 date = datetime.today().strftime("%Y-%m-%d_%H%M")

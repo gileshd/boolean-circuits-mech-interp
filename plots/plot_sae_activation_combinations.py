@@ -10,11 +10,11 @@ import optax
 from optax.losses import softmax_cross_entropy
 import os
 
-from boolean_circuits.models import MLP
-from boolean_circuits.parity_data import sample_binary_parity_data
-from boolean_circuits.sae import AutoEncoder
-from boolean_circuits.utils.data import create_minibatches
-from boolean_circuits.utils.plotting import plot_activation_for_combinations
+from boolean_circuits.jax.models import MLP
+from boolean_circuits.jax.data.parity_data import sample_binary_parity_data
+from boolean_circuits.jax.sae import AutoEncoder
+from boolean_circuits.jax.utils.data import create_minibatches
+from boolean_circuits.jax.utils.plotting import plot_activation_for_combinations
 
 plt.style.use("thesis")
 
