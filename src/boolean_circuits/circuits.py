@@ -91,8 +91,12 @@ class Layer:
     def __len__(self) -> int:
         return len(self.gates)
 
+    @property
+    def _max_input_idx(self):
+        return max(max(gate.input_idxs) for gate in self.gates)
+
     def _check_idxs_present(self, prev_layer):
-        max_idx = max(max(gate.input_idxs) for gate in self.gates)
+        max_idx = self._max_input_idx
         if max_idx > len(prev_layer.gates):
             raise ValueError("Not all gate indices not present in previous layer")
 
@@ -101,10 +105,7 @@ class Circuit:
     def __init__(self, layers: list[Layer], output_gate: Gate, input_size=None):
         self.layers = layers
         self.output_gate = output_gate
-        if input_size is None:
-            self.input_size = int(max(max(gate.input_idxs) for gate in self.layers[0].gates)) + 1
-        else:
-            self.input_size = input_size
+        self.intput_size = self.layers[0]._max_input_idx + 1 if input_size is None else input_size
         self._check_wiring()
 
     def __call__(self, input_values: BoolArray) -> tuple[BoolArray, BoolArray]:
