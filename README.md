@@ -2,6 +2,13 @@
 
 This repository contains research code for investigations into the mechanistic interpretability of neural networks trained to implemented Boolean circuits.
 
+## Installation
+
+Alongside example scripts notebooks this repository contains `boolean_circuits` a python library containing research code.
+
+To install the library clone this repo and run
+
+`pip install -e .`
 
 ## Repository Structure
 
