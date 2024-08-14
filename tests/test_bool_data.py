@@ -1,6 +1,6 @@
 from jax import numpy as jnp
 
-from boolean_circuits.bool_data import n_to_binary_array, binary_array_to_number
+from boolean_circuits.jax.data.bool_data import n_to_binary_array, binary_array_to_number
 
 def assert_all_equal(x, y):
     assert jnp.all(x == y)

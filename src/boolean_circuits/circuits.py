@@ -27,37 +27,49 @@ class Operation:
 
 class AND(Operation):
     def __call__(self, input_values: BoolArray) -> Bool:
+        if len(input_values) < 2:
+            raise ValueError("Operation requires at least two inputs")
         return np.all(input_values)
 
 
 class OR(Operation):
     def __call__(self, input_values: BoolArray) -> Bool:
+        if len(input_values) < 2:
+            raise ValueError("Operation requires at least two inputs")
         return np.any(input_values)
 
 
 class NOT(Operation):
     def __call__(self, input_values: BoolArray) -> Bool:
+        if len(input_values) != 1:
+            raise ValueError("NOT operation takes exactly one input")
         return np.bitwise_not(input_values[0])
 
 
 class NAND(Operation):
     def __call__(self, input_values: BoolArray) -> Bool:
+        if len(input_values) < 2:
+            raise ValueError("Operation requires at least two inputs")
         return np.bitwise_not(np.all(input_values))
 
 
 class NOR(Operation):
     def __call__(self, input_values: BoolArray) -> Bool:
+        if len(input_values) < 2:
+            raise ValueError("Operation requires at least two inputs")
         return np.bitwise_not(np.any(input_values))
 
 
 class XOR(Operation):
     def __call__(self, input_values: BoolArray) -> Bool:
+        if len(input_values) < 2:
+            raise ValueError("Operation requires at least two inputs")
         return np.sum(input_values) % 2 == 1
 
 
 class NOOP(Operation):
-    def __call__(self, input_values: BoolArray) -> Bool:
-        return input_values[0]
+    def __call__(self, input_values: BoolArray) -> BoolArray:
+        return input_values
 
 
 class Gate:
@@ -66,6 +78,7 @@ class Gate:
         self.input_idxs = input_idxs
 
     def __call__(self, input_values: BoolArray) -> Bool:
+        """Call the gate operation on `input_idxs` within `input values`."""
         return self.operation(input_values[self.input_idxs])  # type: ignore
 
     def __str__(self) -> str:
@@ -80,6 +93,7 @@ class Layer:
         self.gates = gates
 
     def __call__(self, input_values: BoolArray) -> BoolArray:
+        """Call each gate in the layer and combine the outputs into an array."""
         return np.array([gate(input_values) for gate in self.gates], dtype=Bool)
 
     def __str__(self) -> str:
@@ -93,11 +107,13 @@ class Layer:
 
     @property
     def _max_input_idx(self):
+        """The maximum input index found in a gate in the layer."""
         return max(max(gate.input_idxs) for gate in self.gates)
 
     def _check_idxs_present(self, prev_layer):
+        """Check that all gate indices are present in the `prev_layer`."""
         max_idx = self._max_input_idx
-        if max_idx > len(prev_layer.gates):
+        if max_idx > len(prev_layer.gates) - 1:
             raise ValueError("Not all gate indices not present in previous layer")
 
 
@@ -108,13 +124,13 @@ class Circuit:
         self.input_size = self.layers[0]._max_input_idx + 1 if input_size is None else input_size
         self._check_wiring()
 
-    def __call__(self, input_values: BoolArray) -> tuple[BoolArray, BoolArray]:
+    def __call__(self, input_values: BoolArray) -> tuple[BoolArray, list[BoolArray]]:
         intermediate_values = []
         for layer in self.layers:
             input_values = layer(input_values)
             intermediate_values.append(input_values.astype(int))
         output = self.output_gate(input_values)
-        return np.array(output.astype(int)), np.array(intermediate_values)
+        return np.array(output.astype(int)), intermediate_values
 
     def __str__(self) -> str:
         output = "\n".join([str(layer) for layer in self.layers])
@@ -122,6 +138,11 @@ class Circuit:
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    @property
+    def size(self) -> int:
+        """Return the number of gates in the circuit."""
+        return sum(len(layer) for layer in self.layers) + 1
 
     def _check_wiring(self):
         """Ensure that no gate is referring to an input that doesn't exist."""
