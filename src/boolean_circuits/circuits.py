@@ -105,7 +105,7 @@ class Circuit:
     def __init__(self, layers: list[Layer], output_gate: Gate, input_size=None):
         self.layers = layers
         self.output_gate = output_gate
-        self.intput_size = self.layers[0]._max_input_idx + 1 if input_size is None else input_size
+        self.input_size = self.layers[0]._max_input_idx + 1 if input_size is None else input_size
         self._check_wiring()
 
     def __call__(self, input_values: BoolArray) -> tuple[BoolArray, BoolArray]:
