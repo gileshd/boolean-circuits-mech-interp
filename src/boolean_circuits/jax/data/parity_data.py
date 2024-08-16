@@ -1,5 +1,4 @@
-from functools import partial
-from jax import Array, jit, vmap
+from jax import Array, vmap
 from jax import numpy as jnp
 from jax import random as jr
 from jax.nn import one_hot
@@ -21,11 +20,21 @@ def sample_binary_data(key, n_samples: int, data_dim: int) -> Float[Array, "data
     return jr.bernoulli(key, 0.5, (n_samples, data_dim))
 
 
-@partial(jit, static_argnums=(1, 2))
 def sample_binary_parity_data(
-    key, n_samples: int, dim: int, idx_mask: Bool[Array, "data_dim"]
-) -> tuple[Bool[Array, "n_samples data_dim"], Float[Array, "n_samples 2"]]:
-    """docstring"""
+    key, n_samples: int, dim: int, idx_mask: Bool[Array, "dim"]
+) -> tuple[Bool[Array, "n_samples dim"], Float[Array, "n_samples 2"]]:
+    """
+    Sample sparse parity data.
+
+    Args:
+        key: PRNG key for sampling.
+        n_samples: The number of samples to generate.
+        dim: The dimension of the data.
+        idx_mask: The mask for selecting indices.
+
+    Returns:
+        A tuple containing the generated data and one-hot parity labels.
+    """
     x = sample_binary_data(key, n_samples, dim)
     y = vmap(one_hot_parity, in_axes=(0, None))(x, idx_mask)
     return x, y

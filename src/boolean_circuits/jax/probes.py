@@ -25,9 +25,10 @@ def linear(params, x):
 def cross_entropy_loss(params, x, y):
     """Cross-entropy loss."""
     logits = vmap(linear, (None, 0))(params, x)
-    return jnp.mean(sigmoid_binary_cross_entropy(logits, y))
+    return sigmoid_binary_cross_entropy(logits, y).mean()
 
 
+# TODO: Add docs & annotations
 def train_logistic_probe(
     key, activations, target_labels, num_epochs=1000, learning_rate=0.01, print_every=None
 ):
