@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
@@ -90,3 +91,62 @@ def plot_activation_for_combinations(x, bit_combs, ax=None, color_yticks=True):
             label.set_color(color) # type: ignore
 
     return im
+
+
+def plot_circuit(circuit) -> None:
+    G = nx.DiGraph()
+    pos = {}
+    labels = {}
+
+    # Assign unique IDs to input nodes
+    for i in range(circuit.input_size):
+        node_id = f"input_{i}"
+        G.add_node(node_id)
+        pos[node_id] = (-1, -i)
+        labels[node_id] = f"Input {i}"
+
+    # Assign unique IDs to all gates
+    for layer_idx, layer in enumerate(circuit.layers):
+        for gate_idx, gate in enumerate(layer.gates):
+            node_id = f"layer_{layer_idx}_gate_{gate_idx}"
+            G.add_node(node_id)
+            pos[node_id] = (layer_idx, -gate_idx)
+            labels[node_id] = str(gate.operation)
+
+            # Add edges based on gate inputs
+            for input_idx in gate.input_idxs:
+                if layer_idx == 0:
+                    G.add_edge(f"input_{input_idx}", node_id)
+                else:
+                    prev_layer_len = len(circuit.layers[layer_idx - 1])
+                    for prev_gate_idx in range(prev_layer_len):
+                        if prev_gate_idx == input_idx:
+                            G.add_edge(
+                                f"layer_{layer_idx-1}_gate_{prev_gate_idx}", node_id
+                            )
+                            break
+
+    # Add output node
+    output_node = "output"
+    G.add_node(output_node)
+    pos[output_node] = (len(circuit.layers), 0)
+    labels[output_node] = str(circuit.output_gate.operation)
+
+    # Connect output gate to output node
+    for gate_idx in circuit.output_gate.input_idxs:
+        G.add_edge(f"layer_{len(circuit.layers)-1}_gate_{gate_idx}", output_node)
+
+    _, ax = plt.subplots(figsize=(12, 8))
+    nx.draw(
+        G,
+        pos,
+        labels=labels,
+        with_labels=True,
+        node_size=2000,
+        node_color="lightblue",
+        font_size=10,
+        font_weight="bold",
+        ax=ax,
+    )
+    plt.title("Boolean Circuit Computational Graph")
+    plt.show()
