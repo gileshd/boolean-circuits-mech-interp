@@ -93,7 +93,7 @@ def plot_activation_for_combinations(x, bit_combs, ax=None, color_yticks=True):
     return im
 
 
-def plot_circuit(circuit) -> None:
+def plot_circuit(circuit, ax=None) -> None:
     G = nx.DiGraph()
     pos = {}
     labels = {}
@@ -136,7 +136,8 @@ def plot_circuit(circuit) -> None:
     for gate_idx in circuit.output_gate.input_idxs:
         G.add_edge(f"layer_{len(circuit.layers)-1}_gate_{gate_idx}", output_node)
 
-    _, ax = plt.subplots(figsize=(12, 8))
+    if ax is None:
+        _, ax = plt.subplots(figsize=(12, 8))
     nx.draw(
         G,
         pos,
