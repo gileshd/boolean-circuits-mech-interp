@@ -38,7 +38,8 @@ class NOT(Operation):
     def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         if len(input_values) != 1:
             raise ValueError("NOT operation takes exactly one input")
-        return jnp.bitwise_not(input_values[0])
+        # return jnp.bitwise_not(input_values)
+        return input_values[0] == False
 
 
 class NAND(Operation):
@@ -117,6 +118,8 @@ class Layer(eqx.Module):
 
 class Circuit(eqx.Module):
     layers: list[Layer]
+    # TODO: Do I really need to limit this to a single output gate?
+    #       This might be more flexible if this is just a final layer.
     output_gate: Gate
     input_size: int
 
@@ -130,13 +133,13 @@ class Circuit(eqx.Module):
 
     def __call__(
         self, input_values: Bool[Array, "data_dim"]
-    ) -> tuple[Bool[Array, "output_dim"], list[Bool[Array, "?layer_dim"]]]:
+    ) -> tuple[Bool[Array, "output_dim"], Bool[Array, "{self.size-1}"]]:
         intermediate_values = []
         for layer in self.layers:
             input_values = layer(input_values)
             intermediate_values.append(input_values.astype(int))
         output = self.output_gate(input_values)
-        return jnp.array(output.astype(int)), intermediate_values
+        return jnp.array(output.astype(int)), jnp.concatenate(intermediate_values, axis=-1)
 
     def __str__(self) -> str:
         output = "\n".join([str(layer) for layer in self.layers])
@@ -149,6 +152,17 @@ class Circuit(eqx.Module):
     def size(self) -> int:
         """Return the number of gates in the circuit."""
         return sum(len(layer) for layer in self.layers) + 1
+
+    def unflatten_values(self, values):
+        """Unflatten the values array into a dictionary of layer outputs."""
+        d = {}
+        i = 0
+        for l, layer in enumerate(self.layers):
+            d[f"layer_{l}"] = {}
+            for n, _ in enumerate(layer.gates):
+                d[f"layer_{l}"][f"gate_{n}"] = values[i]
+                i += 1
+        return d
 
     def _check_wiring(self):
         """Ensure that no gate is referring to an input that doesn't exist."""
