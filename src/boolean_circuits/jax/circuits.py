@@ -1,6 +1,10 @@
 from abc import abstractmethod
 import equinox as eqx
+import itertools
+import jax
 from jax import numpy as jnp
+from jax import jit, vmap
+
 from jaxtyping import Array, Bool, Int
 
 # TOOD: Add docstrings
@@ -132,7 +136,7 @@ class Circuit(eqx.Module):
         self._check_wiring()
 
     def __call__(
-        self, input_values: Bool[Array, "data_dim"]
+        self, input_values: Bool[Array, "{self.input_size}"]
     ) -> tuple[Bool[Array, "output_dim"], Bool[Array, "{self.size-1}"]]:
         intermediate_values = []
         for layer in self.layers:
@@ -163,6 +167,64 @@ class Circuit(eqx.Module):
                 d[f"layer_{l}"][f"gate_{n}"] = values[i]
                 i += 1
         return d
+
+    # TODO: Maybe I should be normalising the gate influence differenty?
+    #       I think a more natural way to normalise the gate influence might be
+    #       to only consider bit flips where the bit is "upstream" of the gate?
+    def calculate_influences(self):
+        """
+        Calculate the influence of each input bit and each gate on the output.
+
+        The influence of an input bit is defined as the probability that flipping that bit will 
+        change the output of the circuit. This is a standard definition. 
+
+        The influence of a gate is defined as the probability that flipping an input bit will
+        change both the ouput of that gate and the output of the circuit. As far as I am aware this
+        is not a standard definition. 
+         An alternative definition would be the probability that flipping the gate output will 
+        change the circuit output. However this does not reflect the sensitivity of the gate to 
+        the input.
+
+        Returns:
+            tuple[Array(n_bits,), Array(n_gates,)] - A tuple containing the influence of each input 
+            bit and each gate.
+        """
+        x = jnp.array(list(itertools.product([0, 1], repeat=self.input_size)))
+        n_bits = x.shape[-1]
+
+        _add_trees = lambda t1, t2: jax.tree.map(jnp.add, t1, t2)
+        _flip_bit = lambda x, bit: x.at[bit].set(1 - x[bit])
+
+        def _check_flip(x, bit):
+            """Check the influence of flipping a single bit."""
+            output, intermediates = self(x)
+
+            flipped_output, flipped_intermediates = self(_flip_bit(x, bit))
+            output_changed = (flipped_output != output).any()
+
+            intermediates_changed = intermediates != flipped_intermediates
+            int_and_out_changed = output_changed & intermediates_changed
+
+            return output_changed, int_and_out_changed
+
+        @jit
+        def body_func(carry, x):
+            """Update carry with the influence of flipping each bit in x."""
+            # Calculate the influence of flipping each bit in the input
+            outputs_changed, intermediates_changed = vmap(_check_flip, in_axes=(None, 0))(x, jnp.arange(n_bits))
+            # Average gate influence over bits
+            intermediates_changed = intermediates_changed.mean(0) 
+            # Repack the results
+            updates = (outputs_changed, intermediates_changed)
+            return _add_trees(carry, updates), None
+
+        init_carry = (jnp.zeros(x.shape[-1]), jnp.zeros(self.size - 1))
+        influences, _ = jax.lax.scan(body_func, init_carry, x) # (bit_influences, gate_influences)
+
+        N_samples = x.shape[0]
+        influences = jax.tree.map(lambda a: a / N_samples, influences) # Average over samples
+        return influences
+
 
     def _check_wiring(self):
         """Ensure that no gate is referring to an input that doesn't exist."""
