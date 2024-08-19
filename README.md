@@ -23,7 +23,9 @@ To install the library clone this repo and run
 │       ├── circuits.py        \\ implementation of boolean circuits
 │       ├── jax/               \\ jax specific code, models, training etc
 │       │   ├── data/          \\ code to simulate other boolean data
+│       │   ├── circuits.py    \\ jax version of circuits.py (more feature-rich)
 │       │   ├── models.py
+│       │   ├── probes.py      
 │       │   ├── sae.py
 │       │   └── utils/         \\ misc utilities
 │       └── torch/             \\ pytorch specific code
