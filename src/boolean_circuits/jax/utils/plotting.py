@@ -93,25 +93,45 @@ def plot_activation_for_combinations(x, bit_combs, ax=None, color_yticks=True):
     return im
 
 
-def plot_circuit(circuit, ax=None) -> None:
+def plot_circuit(circuit, ax=None, annotate_influence=False) -> None:
+    """
+    Plot circuit as a graph of gates and inputs.
+
+    Args:
+        circuit: Circuit object to plot.
+        ax (optional): Matplotlib axis object.
+        annotate_influence (optional): Boolean to annotate nodes with influence values.
+    """
     G = nx.DiGraph()
     pos = {}
     labels = {}
+
+    # Calculate influences if needed
+    if annotate_influence:
+        input_influences, gate_influences = circuit.calculate_influences()
 
     # Assign unique IDs to input nodes
     for i in range(circuit.input_size):
         node_id = f"input_{i}"
         G.add_node(node_id)
         pos[node_id] = (-1, -i)
-        labels[node_id] = f"Input {i}"
+        label = f"Input {i}"
+        if annotate_influence:
+            label += f"\n{input_influences[i]:.3f}"
+        labels[node_id] = label
 
     # Assign unique IDs to all gates
+    gate_counter = 0
     for layer_idx, layer in enumerate(circuit.layers):
         for gate_idx, gate in enumerate(layer.gates):
             node_id = f"layer_{layer_idx}_gate_{gate_idx}"
             G.add_node(node_id)
             pos[node_id] = (layer_idx, -gate_idx)
-            labels[node_id] = str(gate.operation)
+            label = str(gate.operation)
+            if annotate_influence:
+                label += f"\n{gate_influences[gate_counter]:.3f}"
+            labels[node_id] = label
+            gate_counter += 1
 
             # Add edges based on gate inputs
             for input_idx in gate.input_idxs:
@@ -149,5 +169,6 @@ def plot_circuit(circuit, ax=None) -> None:
         font_weight="bold",
         ax=ax,
     )
+
     plt.title("Boolean Circuit Computational Graph")
     plt.show()
