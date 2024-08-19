@@ -148,7 +148,9 @@ class Circuit(eqx.Module):
             input_values = layer(input_values)
             intermediate_values.append(input_values.astype(int))
         output = self.output_gate(input_values)
-        return jnp.array(output.astype(int)), jnp.concatenate(intermediate_values, axis=-1)
+        return jnp.array(output.astype(int)), jnp.concatenate(
+            intermediate_values, axis=-1
+        )
 
     def __str__(self) -> str:
         output = "\n".join([str(layer) for layer in self.layers])
@@ -180,18 +182,18 @@ class Circuit(eqx.Module):
         """
         Calculate the influence of each input bit and each gate on the output.
 
-        The influence of an input bit is defined as the probability that flipping that bit will 
-        change the output of the circuit. This is a standard definition. 
+        The influence of an input bit is defined as the probability that flipping that bit will
+        change the output of the circuit. This is a standard definition.
 
         The influence of a gate is defined as the probability that flipping an input bit will
         change both the ouput of that gate and the output of the circuit. As far as I am aware this
-        is not a standard definition. 
-         An alternative definition would be the probability that flipping the gate output will 
-        change the circuit output. However this does not reflect the sensitivity of the gate to 
+        is not a standard definition.
+         An alternative definition would be the probability that flipping the gate output will
+        change the circuit output. However this does not reflect the sensitivity of the gate to
         the input.
 
         Returns:
-            tuple[Array(n_bits,), Array(n_gates,)] - A tuple containing the influence of each input 
+            tuple[Array(n_bits,), Array(n_gates,)] - A tuple containing the influence of each input
             bit and each gate.
         """
         x = jnp.array(list(itertools.product([0, 1], repeat=self.input_size)))
@@ -216,20 +218,25 @@ class Circuit(eqx.Module):
         def body_func(carry, x):
             """Update carry with the influence of flipping each bit in x."""
             # Calculate the influence of flipping each bit in the input
-            outputs_changed, intermediates_changed = vmap(_check_flip, in_axes=(None, 0))(x, jnp.arange(n_bits))
+            outputs_changed, intermediates_changed = vmap(
+                _check_flip, in_axes=(None, 0)
+            )(x, jnp.arange(n_bits))
             # Average gate influence over bits
-            intermediates_changed = intermediates_changed.mean(0) 
+            intermediates_changed = intermediates_changed.mean(0)
             # Repack the results
             updates = (outputs_changed, intermediates_changed)
             return _add_trees(carry, updates), None
 
         init_carry = (jnp.zeros(x.shape[-1]), jnp.zeros(self.size - 1))
-        influences, _ = jax.lax.scan(body_func, init_carry, x) # (bit_influences, gate_influences)
+        influences, _ = jax.lax.scan(
+            body_func, init_carry, x
+        )  # (bit_influences, gate_influences)
 
         N_samples = x.shape[0]
-        influences = jax.tree.map(lambda a: a / N_samples, influences) # Average over samples
+        influences = jax.tree.map(
+            lambda a: a / N_samples, influences
+        )  # Average over samples
         return influences
-
 
     def _check_wiring(self):
         """Ensure that no gate is referring to an input that doesn't exist."""
