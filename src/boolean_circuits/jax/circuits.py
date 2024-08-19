@@ -13,9 +13,14 @@ from jaxtyping import Array, Bool, Int
 
 class Operation:
     @abstractmethod
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         """Perform the operation on the input values."""
-        raise NotImplementedError("Subclasses should implement this method")
+        pass
+
+    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+        if input_values.ndim != 1:
+            raise ValueError(f"{self} input must be 1-dimensional")
+        return self._operation(input_values)
 
     def __str__(self) -> str:
         return self.__class__.__name__
@@ -25,21 +30,21 @@ class Operation:
 
 
 class AND(Operation):
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         if len(input_values) < 2:
-            raise ValueError("Operation requires at least two inputs")
+            raise ValueError("AND operation requires at least two inputs")
         return jnp.all(input_values)
 
 
 class OR(Operation):
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         if len(input_values) < 2:
             raise ValueError("Operation requires at least two inputs")
         return jnp.any(input_values)
 
 
 class NOT(Operation):
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         if len(input_values) != 1:
             raise ValueError("NOT operation takes exactly one input")
         # return jnp.bitwise_not(input_values)
@@ -47,28 +52,28 @@ class NOT(Operation):
 
 
 class NAND(Operation):
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         if len(input_values) < 2:
             raise ValueError("Operation requires at least two inputs")
         return jnp.bitwise_not(jnp.all(input_values))
 
 
 class NOR(Operation):
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         if len(input_values) < 2:
             raise ValueError("Operation requires at least two inputs")
         return jnp.bitwise_not(jnp.any(input_values))
 
 
 class XOR(Operation):
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         if len(input_values) < 2:
             raise ValueError("Operation requires at least two inputs")
         return jnp.sum(input_values) % 2 == 1
 
 
 class NOOP(Operation):
-    def __call__(self, input_values: Bool[Array, "op_dim"]) -> Bool:
+    def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
         # TODO: It would be nice to allow output dim > 1 but that complicates layer size calculattions...
         if len(input_values) != 1:
             raise ValueError("NOOP operation takes exactly one input")
