@@ -157,7 +157,7 @@ def plot_circuit(circuit, ax=None, annotate_influence=False) -> None:
         G.add_edge(f"layer_{len(circuit.layers)-1}_gate_{gate_idx}", output_node)
 
     if ax is None:
-        _, ax = plt.subplots(figsize=(12, 8))
+        _, ax = plt.subplots(figsize=(8, 6))
     nx.draw(
         G,
         pos,
