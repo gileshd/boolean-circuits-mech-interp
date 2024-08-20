@@ -5,7 +5,7 @@ import jax
 from jax import numpy as jnp
 from jax import jit, vmap
 
-from jaxtyping import Array, Bool, Int
+from jaxtyping import Array, Bool, Int, Shaped
 
 # TOOD: Add docstrings
 # TODO: (Equinox?)
@@ -164,20 +164,48 @@ class Circuit(eqx.Module):
         """Return the number of gates in the circuit."""
         return sum(len(layer) for layer in self.layers) + 1
 
-    def unflatten_values(self, values):
-        """Unflatten the values array into a dictionary of layer outputs."""
-        d = {}
+    def structure_gate_values(
+        self, values: Shaped[Array, "n_gates *value_dims"]
+    ) -> dict[str, dict[str, Int[Array, "*value_dims"]]]:
+        """
+        Structure the values array into a dictionary of gate outputs.
+
+        Elements along the first axis of the input array are repacked into a nested dictionary of gate
+        outputs organised by layer.
+        """
+
+        if len(values) != self.size - 1:
+            raise ValueError(
+                "Length of `values` must be match the number of circuit gates."
+            )
+        gate_values_dict = {}
         i = 0
         for l, layer in enumerate(self.layers):
-            d[f"layer_{l}"] = {}
+            gate_values_dict[f"layer_{l}"] = {}
             for n, _ in enumerate(layer.gates):
-                d[f"layer_{l}"][f"gate_{n}"] = values[i]
+                gate_values_dict[f"layer_{l}"][f"gate_{n}"] = values[i]
                 i += 1
-        return d
+        return gate_values_dict
+
+    def print_gate_values(self, values, indent=0) -> None:
+        """Print the values of each gate in the circuit."""
+
+        def _pretty_print_dict(dictionary, indent=0):
+            for key, value in dictionary.items():
+                print("  " * indent + str(key) + ":", end="")
+                if isinstance(value, dict):
+                    print()
+                    _pretty_print_dict(value, indent + 1)
+                else:
+                    print(" " + str(value))
+
+        gate_values_dict = self.structure_gate_values(values)
+        _pretty_print_dict(gate_values_dict, indent)
 
     # TODO: Maybe I should be normalising the gate influence differenty?
-    #       I think a more natural way to normalise the gate influence might be
-    #       to only consider bit flips where the bit is "upstream" of the gate?
+    #  I think a more natural way to normalise the gate influence might be
+    #   to only consider bit flips where the bit is "upstream" of the gate?
+    #  Or maybe just normalising by the number of bits in the input?
     def calculate_influences(self):
         """
         Calculate the influence of each input bit and each gate on the output.
