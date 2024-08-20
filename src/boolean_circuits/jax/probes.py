@@ -32,15 +32,21 @@ def cross_entropy_loss(params, x, y):
 def train_logistic_probe(
     key, activations, target_labels, num_epochs=1000, learning_rate=0.01, print_every=None
 ):
-    """Train a logistic regression probe."""
+    """Train a logistic regression probe with L2 regularization."""
     key, subkey = jr.split(key)
     input_dim = activations.shape[-1]
 
     optimizer = optax.adam(learning_rate)
 
+    def loss_fn(params, x, y, weight_decay=1e-3):
+        """Cross-entropy loss with L2 regularization."""
+        ce_loss = cross_entropy_loss(params, x, y)
+        l2_loss = sum(jnp.sum(jnp.square(p)) for p in jax.tree.leaves(params))
+        return ce_loss + 0.5 * weight_decay * l2_loss
+
     @jit
     def update(params, x, y, opt_state):
-        loss, grads = value_and_grad(cross_entropy_loss)(params, x, y)
+        loss, grads = value_and_grad(loss_fn)(params, x, y)
         updates, opt_state = optimizer.update(grads, opt_state)
         params = optax.apply_updates(params, updates)
         return params, opt_state, loss
