@@ -1,19 +1,20 @@
+from jax import vmap
 from jax import numpy as jnp
 from jax import random as jr
 from jax.tree_util import tree_map
-from jaxtyping import Array, Int
+from jaxtyping import Array, Int, PyTree, Shaped
 
 
-def create_minibatches(data, batch_size, rng_key):
+def create_minibatches(data, batch_size, key):
     """
     Generate minibatches of data and labels, shuffled at each epoch.
 
     Parameters
     ----------
-    x : PyTree with leaves of type jnp.ndarray
+    data : PyTree with leaves of type jnp.ndarray
     batch_size : int
         Size of each minibatch.
-    rng_key : jax.random.PRNGKey
+    key : jax.random.PRNGKey
         JAX random key for shuffling.
 
     Returns
@@ -27,8 +28,7 @@ def create_minibatches(data, batch_size, rng_key):
     num_examples = data[0].shape[0]
 
     # Shuffle data and labels in unison
-    indices = jnp.arange(num_examples)
-    shuffled_indices = jr.permutation(rng_key, indices)
+    shuffled_indices = jr.permutation(key, num_examples)
 
     shuffled_data = tree_map(lambda a: a[shuffled_indices], data)
 
@@ -41,7 +41,35 @@ def create_minibatches(data, batch_size, rng_key):
         yield batch
 
 
-# TODO: The type hints here should really be `Union[Bool, Int]` but 
+def actualise_minibatches(
+    data: PyTree[Shaped[Array, "n_samples *sample_dims"]], batch_size, key
+) -> PyTree[Shaped[Array, "{n_samples // batch_size} {batch_size} *sample_dims"]]:
+    """
+    Actualize and return all minibatches of data shuffled according to `key`.
+
+    Parameters
+    ----------
+    data : PyTree with leaves of type jnp.ndarray
+    batch_size : int
+        Size of each minibatch.
+    key : jax.random.PRNGKey
+        JAX random key for shuffling.
+
+    Returns
+    -------
+        PyTree with batched data as leaves.
+    """
+    x, y = data
+    num_samples = data[0].shape[0]
+    indices = jr.permutation(key, num_samples)
+    num_batches = num_samples // batch_size
+    batch_indices = indices[: num_batches * batch_size].reshape(
+        (num_batches, batch_size)
+    )
+    return vmap(lambda idx: (x[idx], y[idx]))(batch_indices)
+
+
+# TODO: The type hints here should really be `Union[Bool, Int]` but
 #        I'm not sure how to get jaxtyping to play nice with this this...
 def sort_binary_array(
     x: Int[Array, "n_samples n_bits"]
