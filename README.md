@@ -27,6 +27,7 @@ To install the library clone this repo and run
 │       │   ├── models.py
 │       │   ├── probes.py      
 │       │   ├── sae.py
+│       │   ├── train.py       \\ training code
 │       │   └── utils/         \\ misc utilities
 │       └── torch/             \\ pytorch specific code
 └── tests/                     \\ pytest tests
