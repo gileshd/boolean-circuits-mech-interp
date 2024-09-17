@@ -3,18 +3,14 @@ Train probes to predict parity of subsets of data bits from hidden activations
 of MLP trained on sparse parity problem.
 """
 
-import jax
-from jax import grad, jit, vmap
+from jax import vmap
 from jax import numpy as jnp
 from jax import random as jr
-import optax
-from optax.losses import softmax_cross_entropy
 
 from boolean_circuits.jax.data.parity_data import parity, sample_binary_parity_data
-from boolean_circuits.jax.probes import linear, train_logistic_probe
 from boolean_circuits.jax.models import MLPWithIntermediates
-from boolean_circuits.jax.utils.data import create_minibatches
-from boolean_circuits.utils import all_combinations
+from boolean_circuits.jax.probes import linear, train_logistic_probe
+from boolean_circuits.jax.train import loss_l1, loss_l2, train_MLP_scan
 
 
 def sample_sparse_parity_data(key, n_samples: int, n_data_bits: int, dim: int):
@@ -37,60 +33,6 @@ def sample_sparse_parity_data(key, n_samples: int, n_data_bits: int, dim: int):
     idx_mask = jnp.zeros(dim).at[idxs].set(True)
     x, y = sample_binary_parity_data(data_key, n_samples, dim, idx_mask)
     return idxs, x, y
-
-
-def loss_l2(params, x, y, model, weight_decay=1e-3):
-    """Cross entropy loss with L2 weight decay."""
-    logits, *_ = model.apply(params, x)
-    ce_loss = softmax_cross_entropy(logits, y).mean()
-    l2_loss = sum(jnp.sum(jnp.square(p)) for p in jax.tree.leaves(params))
-
-    total_loss = ce_loss + 0.5 * weight_decay * l2_loss
-    return total_loss
-
-
-def loss_l1(params, x, y, model, weight_decay=1e-3):
-    """Cross entropy loss with L1 weight decay."""
-    logits, *_ = model.apply(params, x)
-    ce_loss = softmax_cross_entropy(logits, y).mean()
-    l1_loss = sum(jnp.sum(jnp.abs(p)) for p in jax.tree.leaves(params))
-
-    total_loss = ce_loss + 0.5 * weight_decay * l1_loss
-    return total_loss
-
-
-def train_MLP(
-    key,
-    data,
-    loss_fn,
-    num_epochs=1000,
-    batch_size=64,
-    learning_rate=0.001,
-    print_every=None,
-):
-
-    x, y = data
-    model = MLPWithIntermediates(features=[32, 2])
-    optimizer = optax.adam(learning_rate=learning_rate)
-
-    @jit
-    def update(params, x, y, opt_state):
-        grads = grad(loss_fn)(params, x, y, model)
-        updates, opt_state = optimizer.update(grads, opt_state)
-        new_params = optax.apply_updates(params, updates)
-        return new_params, opt_state
-
-    data_dim = x.shape[-1]
-    params = model.init(key, jnp.ones(data_dim))
-    opt_state = optimizer.init(params)
-    for epoch in range(num_epochs):
-        key, subkey = jr.split(key)
-        for x_batch, y_batch in create_minibatches((x, y), batch_size, subkey):
-            params, opt_state = update(params, x_batch, y_batch, opt_state)
-        if print_every is not None and epoch % print_every == 0:
-            print(f"Epoch {epoch}, Loss: {loss_fn(params, x, y, model)}")
-
-    return model, params
 
 
 def probe_for_idx_parities(key, idx_mask, model, params, x):
@@ -122,6 +64,11 @@ def probe_accuracy(probe_params, activations, target_labels):
 
 
 if __name__ == "__main__":
+
+    from boolean_circuits.utils import all_combinations
+
+    model = MLPWithIntermediates(features=[32, 2])
+
     ## Generate Data ##
     data_dim = 8
     n_data_bits = 4
@@ -139,30 +86,30 @@ if __name__ == "__main__":
 
     print("Train MLP with L2 regularization:")
     N_epochs = 6000
-    model, params_l2 = train_MLP(
+    params_l2, saved_params_l1 = train_MLP_scan(
         train_key,
         (x, y),
         loss_l2,
+        model,
         num_epochs=N_epochs,
         batch_size=64,
         learning_rate=0.001,
-        print_every=1000,
     )
     print(f"L2 Final Accuracy: {model_accuracy(model, params_l2, x, y)}")
     print()
 
     print("Train MLP with L1 regularization:")
     N_epochs = 6000
-    model, params_l1 = train_MLP(
+    params_l1, saved_params_l1 = train_MLP_scan(
         train_key,
         (x, y),
         loss_l1,
+        model,
         num_epochs=N_epochs,
         batch_size=64,
         learning_rate=0.001,
-        print_every=1000,
     )
-    print(f"Final Accuracy: {model_accuracy(model, params_l1, x, y)}")
+    print(f"L1 Final Accuracy: {model_accuracy(model, params_l1, x, y)}")
     print()
 
     ## Train probes ##
