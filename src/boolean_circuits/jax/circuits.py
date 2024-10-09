@@ -45,7 +45,7 @@ class OR(Operation):
 
 class NOT(Operation):
     def _operation(self, input_values: Bool[Array, "op_dim"]) -> Bool:
-        if len(input_values) != 1:
+        if len(input_values) > 1:
             raise ValueError("NOT operation takes exactly one input")
         # return jnp.bitwise_not(input_values)
         return input_values[0] == False
